@@ -8,26 +8,43 @@ import (
 	"time"
 )
 
+const ContainerName = "mysql_test"
+
+type DatabaseInterface interface {
+	SetSQL(p string)
+}
+
 // Container ..
 type Container struct {
 	ID   string
 	Host string
 	Name string
+	SQL  string
 }
 
-const ContainerName = "mysql_test"
+// DockerInspect Values resulting from the command `docker inspect container-name`
+type DockerInspect struct {
+	NetworkSettings struct {
+		Ports struct {
+			TCP3306 []struct {
+				HostIP   string `json:"HostIp"`
+				HostPort string `json:"HostPort"`
+			} `json:"3306/tcp"`
+		} `json:"Ports"`
+	} `json:"NetworkSettings"`
+}
 
-// StartContainer ..
-func StartContainer(t *testing.T) *Container {
-	t.Helper()
-
-	startContainerAndMigrate(t)
-
-	cmd := exec.Command("docker", "ps", "-aqf", "name=" + ContainerName)
-
+// NewContainer creates a new container instance
+func NewContainer(t *testing.T) *Container {
+	var doc []DockerInspect
 	var out bytes.Buffer
 	var stderr bytes.Buffer
+	var c Container
 
+	t.Helper()
+	c.StartContainer(t)
+
+	cmd := exec.Command("docker", "ps", "-aqf", "name="+ContainerName)
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 	_ = cmd.Run()
@@ -46,36 +63,56 @@ func StartContainer(t *testing.T) *Container {
 		return nil
 	}
 
-	var doc []struct {
-		NetworkSettings struct {
-			Ports struct {
-				TCP3306 []struct {
-					HostIP   string `json:"HostIp"`
-					HostPort string `json:"HostPort"`
-				} `json:"3306/tcp"`
-			} `json:"Ports"`
-		} `json:"NetworkSettings"`
-	}
-
 	if err := json.Unmarshal(out.Bytes(), &doc); err != nil {
-		t.Fatalf("could not decode json: %v", err)
+		t.Fatalf("could not decode docker inspect data: %v", err)
 	}
 
 	network := doc[0].NetworkSettings.Ports.TCP3306[0]
-
-	c := Container{
-		ID:   ci,
-		Host: network.HostIP + ":" + network.HostPort,
-		Name: ContainerName,
-	}
-
-	t.Log("DB Host: ", c.Host)
-	t.Log("DB Container: ", c.ID)
+	c.ID = ci
+	c.Host = network.HostIP + ":" + network.HostPort
+	c.Name = ContainerName
 
 	return &c
 }
 
-func startContainerAndMigrate(t *testing.T)  {
+func (c *Container) SetSQL(p string) {
+	c.SQL = p
+}
+
+// StopContainer stops and removes the specified container.
+// TODO: it should stop container by id, right now its giving an error when trying to use c.ID figure it out why?
+func (c *Container) StopContainer(t *testing.T) {
+	t.Helper()
+
+	t.Log("container id", c.ID)
+
+	if err := exec.Command("docker", "kill", ContainerName).Run(); err != nil {
+		t.Fatalf("could not stop container: %v", err)
+	}
+
+	t.Log("Stopped:", c.ID)
+
+	if err := exec.Command("docker", "container", "rm", "-f", ContainerName).Run(); err != nil {
+		t.Fatalf("could not remove container: %v", err)
+	}
+
+	t.Log("Removed:", c.ID)
+}
+
+// DumpContainerLogs runs "docker logs" against the container and send it to t.Log
+func (c *Container) DumpContainerLogs(t *testing.T) {
+	t.Helper()
+
+	out, err := exec.Command("docker", "logs", c.ID).CombinedOutput()
+
+	if err != nil {
+		t.Fatalf("could not log container: %v", err)
+	}
+
+	t.Logf("Logs for %s\n%s:", c.ID, out)
+}
+
+func (c *Container) StartContainer(t *testing.T) {
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	t.Helper()
@@ -97,37 +134,4 @@ func startContainerAndMigrate(t *testing.T)  {
 
 		time.Sleep(time.Duration(attempts) * 100 * time.Millisecond)
 	}
-}
-
-// StopContainer stops and removes the specified container.
-// TODO: it should stop container by id
-func StopContainer(t *testing.T, c *Container) {
-	t.Helper()
-
-	t.Log("container id", c.ID)
-
-	if err := exec.Command("docker", "kill", ContainerName).Run(); err != nil {
-		t.Fatalf("could not stop container: %v", err)
-	}
-
-	t.Log("Stopped:", c.ID)
-
-	if err := exec.Command("docker", "container", "rm", "-f", ContainerName).Run(); err != nil {
-		t.Fatalf("could not remove container: %v", err)
-	}
-
-	t.Log("Removed:", c.ID)
-}
-
-// DumpContainerLogs runs "docker logs" against the container and send it to t.Log
-func DumpContainerLogs(t *testing.T, c *Container) {
-	t.Helper()
-
-	out, err := exec.Command("docker", "logs", c.ID).CombinedOutput()
-
-	if err != nil {
-		t.Fatalf("could not log container: %v", err)
-	}
-
-	t.Logf("Logs for %s\n%s:", c.ID, out)
 }

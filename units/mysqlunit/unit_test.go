@@ -1,6 +1,7 @@
 package mysqlunit
 
 import (
+	"github.com/dogukanayd/go-test-database/databases/testmysql"
 	"testing"
 	"upper.io/db.v3"
 )
@@ -10,7 +11,12 @@ type TestTable struct {
 }
 
 func TestNewUnit(t *testing.T) {
-	connection, tearDown := NewUnit(t)
+	var u Unit
+
+	u.databaseName = testmysql.TestDatabaseName
+	u.t = t
+	connection, tearDown := u.Start()
+
 	defer tearDown()
 
 	t.Run("it should create user with name 'go awesome' and return", func(t *testing.T) {

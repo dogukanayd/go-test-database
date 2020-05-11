@@ -8,25 +8,39 @@ import (
 	"upper.io/db.v3/lib/sqlbuilder"
 )
 
-// NewUnit ...
-func NewUnit(t *testing.T) (sqlbuilder.Database, func()) {
-	t.Helper()
-	c := testmysql.StartContainer(t)
+type MysqlInterface interface {
+	Start() (sqlbuilder.Database, func())
+}
 
-	connection, err := testmysql.Connections.ConnectOrReuse(testmysql.TestDatabaseName, c.Host)
+type Unit struct {
+	t            *testing.T
+	databaseName string
+}
+
+// NewUnit generates a new unit instance
+func NewUnit(t *testing.T) *Unit {
+	return &Unit{t: t}
+}
+
+// NewUnit ...
+func (u *Unit) Start() (sqlbuilder.Database, func()) {
+	u.t.Helper()
+	c := testmysql.NewContainer(u.t)
+
+	connection, err := testmysql.Connections.ConnectOrReuse(u.databaseName, c.Host)
 
 	if err != nil {
-		t.Fatalf("opening database connection: %v", err)
+		u.t.Fatalf("opening database connection: %v", err)
 	}
 
-	healthCheck(connection, t, c)
+	u.HealthCheck(connection, u.t, c)
 
 	// teardown is the function that should be invoked when the caller is done
 	// with the database.
 	teardown := func() {
-		t.Helper()
+		u.t.Helper()
 		_ = connection.Close()
-		testmysql.StopContainer(t, c)
+		c.StopContainer(u.t)
 	}
 
 	return connection, teardown
@@ -34,7 +48,7 @@ func NewUnit(t *testing.T) (sqlbuilder.Database, func()) {
 
 // Wait for the database to be ready. Wait 100ms longer between each attempt.
 // Do not try more than 20 times.
-func healthCheck(connection sqlbuilder.Database, t *testing.T, c *testmysql.Container, ) {
+func (u *Unit) HealthCheck(connection sqlbuilder.Database, t *testing.T, c *testmysql.Container) {
 	var pingError error
 
 	maxAttempts := 20
@@ -50,7 +64,8 @@ func healthCheck(connection sqlbuilder.Database, t *testing.T, c *testmysql.Cont
 	}
 
 	if pingError != nil {
-		testmysql.StopContainer(t, c)
+		c.DumpContainerLogs(t)
+		c.StopContainer(t)
 		t.Fatalf("waiting for database to be ready: %v", pingError)
 	}
 }
