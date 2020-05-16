@@ -1,6 +1,7 @@
-package testmysql
+package mysql
 
 import (
+	"time"
 	"upper.io/db.v3/lib/sqlbuilder"
 	"upper.io/db.v3/mysql"
 )
@@ -17,6 +18,8 @@ const TestDatabaseName = "test_database"
 // ConnectOrReuse connection
 func (c *connection) ConnectOrReuse(dbName, host string) (sqlbuilder.Database, error) {
 	connection, ok := c.list[dbName]
+	var session sqlbuilder.Database
+	var sessionError error
 
 	// If connection does not exist or dead
 	if !ok || connection.Ping() != nil {
@@ -28,10 +31,16 @@ func (c *connection) ConnectOrReuse(dbName, host string) (sqlbuilder.Database, e
 			return nil, err
 		}
 
-		session, err := mysql.Open(dsn)
+		maxAttempts := 20
 
-		if err != nil {
-			return nil, err
+		for attempts := 1; attempts <= maxAttempts; attempts++ {
+			session, sessionError = mysql.Open(dsn)
+
+			if sessionError == nil {
+				break
+			}
+
+			time.Sleep(time.Duration(attempts) * 1000 * time.Millisecond)
 		}
 
 		c.list[dbName] = session

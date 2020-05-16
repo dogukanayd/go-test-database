@@ -1,25 +1,20 @@
-package testmysql
+package mysql
 
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"testing"
-	"time"
 )
 
 const ContainerName = "mysql_test"
-
-type DatabaseInterface interface {
-	SetSQL(p string)
-}
 
 // Container ..
 type Container struct {
 	ID   string
 	Host string
 	Name string
-	SQL  string
 }
 
 // DockerInspect Values resulting from the command `docker inspect container-name`
@@ -35,14 +30,13 @@ type DockerInspect struct {
 }
 
 // NewContainer creates a new container instance
-func NewContainer(t *testing.T) *Container {
+func NewContainer() *Container {
 	var doc []DockerInspect
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	var c Container
 
-	t.Helper()
-	c.StartContainer(t)
+	c.StartContainer()
 
 	cmd := exec.Command("docker", "ps", "-aqf", "name="+ContainerName)
 	cmd.Stdout = &out
@@ -58,13 +52,13 @@ func NewContainer(t *testing.T) *Container {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("could not inspect container %s: %v", ci, stderr.String())
+		fmt.Errorf("could not inspect container %s: %v", ci, stderr.String())
 
 		return nil
 	}
 
 	if err := json.Unmarshal(out.Bytes(), &doc); err != nil {
-		t.Fatalf("could not decode docker inspect data: %v", err)
+		fmt.Errorf("could not decode docker inspect data: %v", err)
 	}
 
 	network := doc[0].NetworkSettings.Ports.TCP3306[0]
@@ -73,10 +67,6 @@ func NewContainer(t *testing.T) *Container {
 	c.Name = ContainerName
 
 	return &c
-}
-
-func (c *Container) SetSQL(p string) {
-	c.SQL = p
 }
 
 // StopContainer stops and removes the specified container.
@@ -112,26 +102,17 @@ func (c *Container) DumpContainerLogs(t *testing.T) {
 	t.Logf("Logs for %s\n%s:", c.ID, out)
 }
 
-func (c *Container) StartContainer(t *testing.T) {
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	t.Helper()
+func (c *Container) StartContainer() {
+	killAndRemove()
+	runContainer()
+}
 
-	cmd := exec.Command("bash", "run.sh")
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
+func killAndRemove() {
+	_ = exec.Command("docker", "kill", "mysql_test").Run()
+	_ = exec.Command("docker", "container", "rm", "-f", "mysql_test").Run()
+}
 
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("could not build container %v", stderr.String())
-	}
-
-	maxAttempts := 20
-
-	for attempts := 1; attempts <= maxAttempts; attempts++ {
-		if out.String() == "completed" {
-			t.Log("test database up success")
-		}
-
-		time.Sleep(time.Duration(attempts) * 100 * time.Millisecond)
-	}
+func runContainer() {
+	_ = exec.Command("docker", "run", "-d", "--name", "mysql_test", "-p", "3305:3306", "-e", "MYSQL_ROOT_PASSWORD=root", "-e", "MYSQL_DATABASE=test_database", "mysql").Run()
+	_ = exec.Command("docker", "wait", "mysql_test")
 }

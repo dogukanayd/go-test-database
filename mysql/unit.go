@@ -1,46 +1,49 @@
-package mysqlunit
+package mysql
 
 import (
-	"github.com/dogukanayd/go-test-database/databases/testmysql"
 	"testing"
 	"time"
 
 	"upper.io/db.v3/lib/sqlbuilder"
 )
 
-type MysqlInterface interface {
-	Start() (sqlbuilder.Database, func())
-}
-
 type Unit struct {
-	t            *testing.T
-	databaseName string
+	T            *testing.T
+	DatabaseName string
+	MaxAttempts  int
 }
 
 // NewUnit generates a new unit instance
-func NewUnit(t *testing.T) *Unit {
-	return &Unit{t: t}
+//
+// Example:
+// 		mysqlunit.NewUnit(t, "test_database").Start()
+func NewUnit(t *testing.T, dbName string, ma int) *Unit {
+	return &Unit{
+		T:            t,
+		DatabaseName: dbName,
+		MaxAttempts:  ma,
+	}
 }
 
 // NewUnit ...
 func (u *Unit) Start() (sqlbuilder.Database, func()) {
-	u.t.Helper()
-	c := testmysql.NewContainer(u.t)
+	u.T.Helper()
+	c := NewContainer()
 
-	connection, err := testmysql.Connections.ConnectOrReuse(u.databaseName, c.Host)
+	connection, err := Connections.ConnectOrReuse(u.DatabaseName, c.Host)
 
 	if err != nil {
-		u.t.Fatalf("opening database connection: %v", err)
+		u.T.Fatalf("opening database connection: %v", err)
 	}
 
-	u.HealthCheck(connection, u.t, c)
+	u.HealthCheck(connection, u.T, c)
 
 	// teardown is the function that should be invoked when the caller is done
 	// with the database.
 	teardown := func() {
-		u.t.Helper()
+		u.T.Helper()
 		_ = connection.Close()
-		c.StopContainer(u.t)
+		c.StopContainer(u.T)
 	}
 
 	return connection, teardown
@@ -48,7 +51,7 @@ func (u *Unit) Start() (sqlbuilder.Database, func()) {
 
 // Wait for the database to be ready. Wait 100ms longer between each attempt.
 // Do not try more than 20 times.
-func (u *Unit) HealthCheck(connection sqlbuilder.Database, t *testing.T, c *testmysql.Container) {
+func (u *Unit) HealthCheck(connection sqlbuilder.Database, t *testing.T, c *Container) {
 	var pingError error
 
 	maxAttempts := 20
@@ -60,7 +63,7 @@ func (u *Unit) HealthCheck(connection sqlbuilder.Database, t *testing.T, c *test
 			break
 		}
 
-		time.Sleep(time.Duration(attempts) * 100 * time.Millisecond)
+		time.Sleep(time.Duration(attempts) * 1000 * time.Millisecond)
 	}
 
 	if pingError != nil {
