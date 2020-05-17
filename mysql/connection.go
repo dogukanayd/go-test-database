@@ -1,6 +1,8 @@
 package mysql
 
 import (
+	"fmt"
+	"sync"
 	"time"
 	"upper.io/db.v3/lib/sqlbuilder"
 	"upper.io/db.v3/mysql"
@@ -11,15 +13,17 @@ var Connections = &connection{list: make(map[string]sqlbuilder.Database)}
 
 type connection struct {
 	list map[string]sqlbuilder.Database
+	sync.Mutex
 }
 
 const TestDatabaseName = "test_database"
 
 // ConnectOrReuse connection
 func (c *connection) ConnectOrReuse(dbName, host string) (sqlbuilder.Database, error) {
+	c.Lock()
+	defer c.Unlock()
+
 	connection, ok := c.list[dbName]
-	var session sqlbuilder.Database
-	var sessionError error
 
 	// If connection does not exist or dead
 	if !ok || connection.Ping() != nil {
@@ -31,22 +35,26 @@ func (c *connection) ConnectOrReuse(dbName, host string) (sqlbuilder.Database, e
 			return nil, err
 		}
 
-		maxAttempts := 20
-
-		for attempts := 1; attempts <= maxAttempts; attempts++ {
-			session, sessionError = mysql.Open(dsn)
-
-			if sessionError == nil {
-				break
-			}
-
-			time.Sleep(time.Duration(attempts) * 1000 * time.Millisecond)
-		}
+		session, err := mysql.Open(dsn)
 
 		c.list[dbName] = session
+		go c.close(dbName)
 
 		return session, nil
 	}
 
 	return connection, nil
+}
+
+func (c *connection) close(db string) {
+	time.Sleep(30 * time.Second)
+
+	c.Lock()
+	defer c.Unlock()
+
+	if err := c.list[db].Close(); err != nil {
+		fmt.Println(err)
+	}
+
+	delete(c.list, db)
 }
