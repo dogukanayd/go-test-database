@@ -15,6 +15,7 @@ type Unit struct {
 
 // NewUnit generates a new unit instance
 //
+// Deprecated: HeaderMap exists for historical compatibility
 // Example:
 // 		mysqlunit.NewUnit(t, "test_database").Start()
 func NewUnit(t *testing.T, dbName string) *Unit {
