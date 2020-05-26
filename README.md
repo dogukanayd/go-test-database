@@ -13,19 +13,19 @@ go get github.com/dogukanayd/go-test-database
 
 # USAGE
 ```go
-package mysql_unit
+package greetings
 
 import (
+	mysql_unit "github.com/dogukanayd/go-test-database/mysql-unit"
 	"log"
 	"testing"
 )
 
-func TestNewUnit(t *testing.T) {
-	connection, def := NewUnit()
-    // example query
-	q := `CREATE TABLE test_table(id int(11),name varchar(500)) ENGINE = InnoDB  DEFAULT CHARSET = utf8;`
-	_, err := connection.Query(q)
+func TestHello(t *testing.T) {
+	db, def := mysql_unit.NewUnit()
 
+	q := `CREATE TABLE test_table(id int(11),name varchar(500)) ENGINE = InnoDB  DEFAULT CHARSET = utf8;`
+	_, err := db.Query(q)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -34,7 +34,6 @@ func TestNewUnit(t *testing.T) {
 
 	t.Log("ping success")
 }
-
 ```
 
 When you call the `NewUnit` function;
