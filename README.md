@@ -1,6 +1,6 @@
 # go-test-database
 
-This package creates a mysql container for your applications and returns a connectionn to the created database so you can easily query the test database.
+This package creates a up and running mysql container for your applications and returns a connectionn to the created database so you can easily query the test database.
 
 # Requirements
 * :3305 port must not be used
@@ -29,8 +29,6 @@ func TestNewUnit(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// TODO: connection should close
 
 	defer def()
 
