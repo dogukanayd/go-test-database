@@ -1,6 +1,10 @@
 # go-test-database
 
-This package creates a test database for your go applications using the `127.0.0.1:3305`.
+This package creates a mysql container for your applications and returns a connectionn to the created database so you can easily query the test database.
+
+# Requirements
+* :3305 port must not be used
+* docker
 
 # INSTALL
 ```bash
