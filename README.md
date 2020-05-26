@@ -1,6 +1,8 @@
 # go-test-database
-
+#### What this package does?
 This package creates a up and running mysql container for your applications and returns a connectionn to the created database so you can easily query the test database.
+
+![alt text](https://encrypted-tbn0.gstatic.com/images?q=tbn%3AANd9GcS_5LAwzTqOQRs8pYq_fJHA8n7djUMdcgkeR2Qg69ajuggKXhgm&usqp=CAU)
 
 # Requirements
 * :3305 port must not be used
