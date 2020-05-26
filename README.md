@@ -17,10 +17,10 @@ import (
 )
 
 func TestNewUnit(t *testing.T) {
-	db, def := NewUnit()
+	connection, def := NewUnit()
     // example query
 	q := `CREATE TABLE test_table(id int(11),name varchar(500)) ENGINE = InnoDB  DEFAULT CHARSET = utf8;`
-	_, err := db.Query(q)
+	_, err := connection.Query(q)
 
 	if err != nil {
 		log.Fatal(err)
@@ -33,4 +33,17 @@ func TestNewUnit(t *testing.T) {
 	t.Log("ping success")
 }
 
+```
+
+When you call the `NewUnit` function;
+```go
+connection, tearDown := NewUnit()
+```
+it's return two parameters;
+ * connection: *sql.DB // connection that allows you to query the database 
+ * tearDown
+ 
+here is the defination of the `NewUnit` function;
+```go
+func NewUnit() (*sql.DB, func()) {}
 ```
