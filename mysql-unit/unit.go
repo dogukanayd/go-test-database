@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func NewUnitV2() (*sql.DB, func()) {
+func NewUnit() (*sql.DB, func()) {
 	var cp ContainerProperties
 	var connection *sql.DB
 	var err error
@@ -36,15 +36,14 @@ func NewUnitV2() (*sql.DB, func()) {
 
 	connection = BasicConnection()
 
-	// time.Sleep(30 * time.Second)
-
 	for attempts := 1; attempts <= maxAttempts; attempts++ {
-		fmt.Printf("Connection attempt to mysql number: %v\n", attempts)
+		fmt.Printf("Mysql connection attempt number: %v\n", attempts)
 
 		if err = connection.Ping(); err != nil {
-			// fmt.Println("connection error:", err)
+			// when ping failed error printed
+			fmt.Println("trying to reconnect to the mysql...")
 
-			time.Sleep(time.Duration(attempts) * 1000 * time.Millisecond)
+			time.Sleep(time.Duration(attempts) * 5 * time.Second)
 		} else {
 			break
 		}
